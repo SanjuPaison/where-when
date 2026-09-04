@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When &amp; Where — Life Event Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://sanjupaison.github.io/pluto-phases-meter/pluto-style.css">
+
+<style>
+  /* Widget-specific styling only — everything else (colors, fonts, cards,
+     buttons, spacing) comes from pluto-style.css so this matches the
+     rest of the Pluto family automatically. */
+  #ww-root { max-width: 560px; margin: 0 auto; }
+  #ww-root .ww-eyebrow{
+    font-family:var(--font-display); letter-spacing:.3em; text-transform:uppercase;
+    font-size:.72rem; font-weight:600; color:var(--accent); text-align:center; margin:0 0 10px;
+  }
+  /* ---- Google-style rounded "mad-lib" search box ---- */
+  .ww-search-box{
+    background:var(--bg-1); border:1px solid var(--card-border); border-radius:999px;
+    padding:24px 28px; margin-bottom:18px; text-align:center;
+    font-family:var(--font-display); font-size:clamp(22px, 5.4vw, 30px);
+    line-height:1.8; font-weight:300; letter-spacing:2px;
+  }
+  .ww-search-box select{
+    appearance:none; -webkit-appearance:none; background:var(--card);
+    border:1px solid var(--accent); color:var(--accent); font-family:var(--font-body);
+    font-size:inherit; font-weight:600; border-radius:999px; padding:4px 34px 4px 16px;
+    margin:2px 4px; cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c084fc'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat:no-repeat; background-position:right 10px center; background-size:16px;
+  }
+  .ww-search-box select:focus{ outline:none; box-shadow:0 0 0 2px var(--accent); }
+
+  /* ---- birth fields panel (hidden until both selects are chosen) ---- */
+  #ww-birth-panel{ display:none; }
+  #ww-birth-panel.show{ display:block; }
+  .ww-field{ margin-bottom:12px; }
+  .ww-field label{
+    display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em;
+    font-weight:600; color:var(--text-lo); margin-bottom:5px;
+  }
+  .ww-field input[type="date"], .ww-field input[type="time"], .ww-field input[type="text"], .ww-field select{
+    width:100%; background:var(--bg-1); border:1px solid var(--card-border); color:var(--text-hi);
+    border-radius:var(--radius-sm); padding:9px 11px; font-family:var(--font-body); font-size:14px;
+    color-scheme:dark;
+  }
+  .ww-row{ display:flex; gap:10px; }
+  .ww-row .ww-field{ flex:1; }
+  .ww-locate-btn{
+    margin-top:6px; width:100%; padding:9px; border-radius:var(--radius-sm);
+    border:1px solid var(--card-border); background:var(--bg-1); color:var(--text-lo);
+    font-size:12.5px; font-weight:700; letter-spacing:.03em; cursor:pointer; transition:.2s;
+  }
+  .ww-locate-btn:hover{ border-color:var(--accent); color:var(--text-hi); }
+  .ww-place-status{ font-size:11.5px; color:var(--text-faint); margin-top:5px; min-height:14px; }
+  .ww-submit-btn{
+    width:100%; padding:13px; border-radius:var(--radius-sm); border:none;
+    background:var(--accent); color:var(--bg-0); font-weight:700; font-size:15px;
+    letter-spacing:.03em; cursor:pointer; margin-top:6px; transition:.2s;
+  }
+  .ww-submit-btn:hover{ filter:brightness(1.08); }
+  .ww-submit-btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+  #ww-error{
+    display:none; text-align:center; padding:8px; font-size:12.5px; color:#fca5a5;
+    margin-bottom:10px;
+  }
+  #ww-error.show{ display:block; }
+  #ww-busy{ display:none; text-align:center; color:var(--text-lo); font-size:13px; padding:10px 0; }
+  #ww-busy.show{ display:block; }
+
+  /* ---- results ---- */
+  #ww-results{ display:none; }
+  #ww-results.show{ display:block; }
+  .ww-result-card{
+    background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:12px;
+  }
+  .ww-result-title{
+    font-family:var(--font-display); font-size:13px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--accent); margin-bottom:10px;
+  }
+  .ww-hit-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 4px; border-bottom:1px solid var(--card-border); font-size:14px;
+  }
+  .ww-hit-row:last-child{ border-bottom:none; }
+  .ww-hit-month{ font-family:var(--font-mono); color:var(--text-hi); font-weight:600; }
+  .ww-hit-aspect{ color:var(--text-lo); font-size:12.5px; }
+  .ww-city-row{
+    display:flex; justify-content:space-between; padding:7px 4px;
+    border-bottom:1px solid var(--card-border); font-size:14px;
+  }
+  .ww-city-row:last-child{ border-bottom:none; }
+  .ww-city-name{ color:var(--text-hi); }
+  .ww-city-sign{ color:var(--text-lo); font-size:12.5px; font-family:var(--font-mono); }
+  .ww-empty-note{ color:var(--text-faint); font-size:13px; text-align:center; padding:8px 0; }
+
+  /* ---- footer / report link ---- */
+  footer.ww-footer{
+    display:flex; justify-content:flex-end; align-items:center; margin-top:16px;
+    padding-top:10px; border-top:1px solid var(--card-border);
+  }
+  #ww-report-link{
+    color:var(--accent); font-size:13px; font-weight:700; text-decoration:none;
+    border-bottom:1px dotted var(--accent);
+  }
+  #ww-report-link:hover{ color:var(--text-hi); border-color:var(--text-hi); }
+  .ww-disclaimer{
+    font-size:10.5px; color:var(--text-faint); text-align:center; margin-top:10px; line-height:1.4; opacity:.75;
+  }
+</style>
+</head>
+<body data-theme="space">
+
+<div class="app" id="ww-root">
+  <div class="ww-eyebrow">Life Event Finder</div>
+
+  <div class="ww-search-box">
+    <select id="ww-mode">
+      <option value="" disabled selected>When / Where</option>
+      <option value="when">When</option>
+      <option value="where">Where</option>
+    </select>
+    will I find
+    <select id="ww-category">
+      <option value="" disabled selected>choose one</option>
+      <option value="fun">fun &amp; good times</option>
+      <option value="partner">my life partner</option>
+      <option value="career">a job or career</option>
+      <option value="home">my home or family</option>
+    </select>
+    ?
+  </div>
+
+  <div id="ww-birth-panel" class="collapsible-panel open">
+    <div class="ww-row">
+      <div class="ww-field">
+        <label for="ww-birth-date">Birth date</label>
+        <input type="date" id="ww-birth-date" required min="1940-01-01" max="2060-12-31">
+      </div>
+      <div class="ww-field">
+        <label for="ww-birth-time">Birth time</label>
+        <input type="time" id="ww-birth-time" required>
+      </div>
+    </div>
+    <div class="ww-field">
+      <label for="ww-utc-offset">UTC offset at birth</label>
+      <select id="ww-utc-offset"></select>
+    </div>
+    <div class="ww-field">
+      <label for="ww-place">Birth place</label>
+      <input type="text" id="ww-place" placeholder="e.g. Kolkata, India" autocomplete="off" required>
+      <button type="button" class="ww-locate-btn" id="ww-locate-btn">Locate</button>
+      <div class="ww-place-status" id="ww-place-status"></div>
+    </div>
+    <button type="button" class="ww-submit-btn" id="ww-submit-btn" disabled>Reveal my answer</button>
+  </div>
+
+  <div id="ww-error"></div>
+  <div id="ww-busy">Calculating…</div>
+  <div id="ww-results"></div>
+
+  <footer class="ww-footer">
+    <a href="#" id="ww-report-link" target="_blank" rel="noopener">Full Report ($60)</a>
+  </footer>
+  <div class="ww-disclaimer">For entertainment and reflective purposes only. Not a substitute for professional advice.</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- CONFIG ----
+  var WORKER_URL = "https://REPLACE-WITH-YOUR-WORKER.workers.dev/"; // <-- set to your deployed worker URL
+  var JOTFORM_ID = "262381784349064";
+  var JOTFORM_FIELDS = {
+    birthDateMonth: "q2_datetime0[month]",
+    birthDateDay: "q2_datetime0[day]",
+    birthDateYear: "q2_datetime0[year]",
+    birthTimeInput: "q3_time1[timeInput]",
+    birthTimeAmpm: "q3_time1[ampm]",
+    birthPlace: "q4_textbox2",
+    service: "q7_checkbox5"
+  };
+  var REPORT_SERVICE_LABEL = "Time and Location Full Report"; // add this option to the Jotform's checkbox field
+
+  var modeSelect = document.getElementById("ww-mode");
+  var categorySelect = document.getElementById("ww-category");
+  var birthPanel = document.getElementById("ww-birth-panel");
+  var dateInput = document.getElementById("ww-birth-date");
+  var timeInput = document.getElementById("ww-birth-time");
+  var utcSelect = document.getElementById("ww-utc-offset");
+  var placeInput = document.getElementById("ww-place");
+  var locateBtn = document.getElementById("ww-locate-btn");
+  var placeStatus = document.getElementById("ww-place-status");
+  var submitBtn = document.getElementById("ww-submit-btn");
+  var errorEl = document.getElementById("ww-error");
+  var busyEl = document.getElementById("ww-busy");
+  var resultsEl = document.getElementById("ww-results");
+  var reportLink = document.getElementById("ww-report-link");
+
+  var resolvedLat = null, resolvedLon = null, resolvedPlaceName = null;
+  var lastInput = null;
+
+  // Populate UTC offset select (-12 to +14, in 30-min steps for the half-hour zones)
+  (function populateOffsets() {
+    var offsets = [];
+    for (var h = -12; h <= 14; h += 0.5) offsets.push(h);
+    offsets.forEach(function (h) {
+      var opt = document.createElement("option");
+      opt.value = h;
+      var sign = h >= 0 ? "+" : "-";
+      var abs = Math.abs(h);
+      var hh = Math.floor(abs);
+      var mm = (abs - hh) * 60;
+      opt.textContent = "UTC" + sign + hh + (mm ? ":30" : ":00");
+      if (h === 0) opt.selected = true;
+      utcSelect.appendChild(opt);
+    });
+  })();
+
+  function showError(msg) { errorEl.textContent = msg; errorEl.classList.add("show"); }
+  function clearError() { errorEl.textContent = ""; errorEl.classList.remove("show"); }
+
+  function checkReady() {
+    var haveMode = !!modeSelect.value;
+    var haveCategory = !!categorySelect.value;
+    if (haveMode && haveCategory) {
+      birthPanel.classList.add("show", "open");
+    } else {
+      birthPanel.classList.remove("show");
+    }
+    submitBtn.disabled = !(haveMode && haveCategory && dateInput.value && timeInput.value && resolvedLat !== null);
+  }
+  modeSelect.addEventListener("change", checkReady);
+  categorySelect.addEventListener("change", checkReady);
+  dateInput.addEventListener("change", checkReady);
+  timeInput.addEventListener("change", checkReady);
+
+  locateBtn.addEventListener("click", function () {
+    var q = placeInput.value.trim();
+    if (!q) { placeStatus.textContent = "Enter a place name first."; return; }
+    placeStatus.textContent = "Looking up…";
+    var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q);
+    fetch(url, { headers: { "Accept": "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (results) {
+        if (!results || results.length === 0) {
+          placeStatus.textContent = "Could not find that place. Try a nearby larger city.";
+          resolvedLat = null; resolvedLon = null;
+          checkReady();
+          return;
+        }
+        resolvedLat = parseFloat(results[0].lat);
+        resolvedLon = parseFloat(results[0].lon);
+        resolvedPlaceName = results[0].display_name;
+        placeStatus.textContent = "Located: " + resolvedPlaceName;
+        checkReady();
+      })
+      .catch(function () {
+        placeStatus.textContent = "Lookup failed. Try again.";
+      });
+  });
+
+  function pad2(n) { n = String(n); return n.length < 2 ? "0" + n : n; }
+
+  function buildJotformUrl(input) {
+    var hour24 = input.birthHour;
+    var ampm = hour24 >= 12 ? "PM" : "AM";
+    var hour12 = hour24 % 12;
+    if (hour12 === 0) hour12 = 12;
+    var params = [];
+    function add(key, value) { params.push(encodeURIComponent(key) + "=" + encodeURIComponent(value)); }
+    add(JOTFORM_FIELDS.birthDateMonth, pad2(input.birthMonth));
+    add(JOTFORM_FIELDS.birthDateDay, pad2(input.birthDay));
+    add(JOTFORM_FIELDS.birthDateYear, input.birthYear);
+    add(JOTFORM_FIELDS.birthTimeInput, pad2(hour12) + ":" + pad2(input.birthMinute));
+    add(JOTFORM_FIELDS.birthTimeAmpm, ampm);
+    add(JOTFORM_FIELDS.birthPlace, resolvedPlaceName || (input.latitude + ", " + input.longitude));
+    add(JOTFORM_FIELDS.service, REPORT_SERVICE_LABEL);
+    return "https://form.jotform.com/" + JOTFORM_ID + "?" + params.join("&");
+  }
+
+  function updateReportLink() {
+    if (!lastInput) { reportLink.href = "https://form.jotform.com/" + JOTFORM_ID; return; }
+    reportLink.href = buildJotformUrl(lastInput);
+  }
+
+  function renderWhenResults(months, categoryLabel) {
+    var html = '<div class="ww-result-card">';
+    html += '<div class="ww-result-title">When you\u2019ll find ' + categoryLabel + '</div>';
+    if (!months.length) {
+      html += '<div class="ww-empty-note">No exact transit windows fall in the scanned range for this chart.</div>';
+    } else {
+      months.forEach(function (m) {
+        html += '<div class="ww-hit-row">' +
+          '<span class="ww-hit-month">' + m.label + '</span>' +
+          '<span class="ww-hit-aspect">' + m.aspect + ' &middot; ' + m.point + '</span>' +
+          '</div>';
+      });
+    }
+    html += '</div>';
+    resultsEl.innerHTML = html;
+  }
+
+  function renderWhereResults(cities, categoryLabel) {
+    var html = '<div class="ww-result-card">';
+    html += '<div class="ww-result-title">Where you\u2019ll find ' + categoryLabel + '</div>';
+    if (!cities.length) {
+      html += '<div class="ww-empty-note">No matching cities found in this scan for your chart.</div>';
+    } else {
+      cities.forEach(function (c) {
+        html += '<div class="ww-city-row">' +
+          '<span class="ww-city-name">' + c.city + ', ' + c.country + '</span>' +
+          '<span class="ww-city-sign">' + c.sign + ' ' + c.degree + '\u00b0</span>' +
+          '</div>';
+      });
+    }
+    html += '</div>';
+    resultsEl.innerHTML = html;
+  }
+
+  var CATEGORY_LABELS = {
+    fun: "fun & good times", partner: "your life partner",
+    career: "a job or career", home: "your home or family"
+  };
+
+  submitBtn.addEventListener("click", function () {
+    clearError();
+    resultsEl.classList.remove("show");
+    resultsEl.innerHTML = "";
+
+    if (resolvedLat === null || resolvedLon === null) {
+      showError('Please locate your birth place using the "Locate" button first.');
+      return;
+    }
+
+    var dParts = dateInput.value.split("-").map(Number);
+    var tParts = timeInput.value.split(":").map(Number);
+
+    var input = {
+      mode: modeSelect.value,
+      category: categorySelect.value,
+      birthYear: dParts[0], birthMonth: dParts[1], birthDay: dParts[2],
+      birthHour: tParts[0], birthMinute: tParts[1],
+      utcOffsetHours: parseFloat(utcSelect.value),
+      latitude: resolvedLat, longitude: resolvedLon
+    };
+    lastInput = input;
+    updateReportLink();
+
+    submitBtn.disabled = true;
+    busyEl.classList.add("show");
+
+    fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input)
+    }).then(function (r) {
+      return r.json().then(function (body) {
+        if (!r.ok) throw new Error(body.message || "The reading service returned an error.");
+        return body;
+      });
+    }).then(function (body) {
+      busyEl.classList.remove("show");
+      submitBtn.disabled = false;
+      resultsEl.classList.add("show");
+      var label = CATEGORY_LABELS[input.category];
+      if (body.result.mode === "when") {
+        renderWhenResults(body.result.months, label);
+      } else {
+        renderWhereResults(body.result.cities, label);
+      }
+    }).catch(function (err) {
+      busyEl.classList.remove("show");
+      submitBtn.disabled = false;
+      showError(err.message || "Something went wrong. Please try again.");
+    });
+  });
+
+  updateReportLink();
+})();
+</script>
+</body>
+</html>
